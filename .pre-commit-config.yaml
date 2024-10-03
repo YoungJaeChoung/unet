@@ -1,0 +1,83 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/asottile/add-trailing-comma
+    rev: v2.3.0
+    hooks:
+
+      # add trailing comma
+      - id: add-trailing-comma
+        language: python
+        types: [python]
+        exclude: pipeline/
+
+  - repo: https://github.com/pycqa/flake8
+    rev: '5.0.4'
+    hooks:
+
+      # flake8
+      - id: flake8
+        language: python
+        types: [python]
+        additional_dependencies: [
+          flake8-typing-imports==1.5.0,
+          flake8-import-order,
+        ]
+        args: ["--max-line-length=100", "--per-file-ignores=*/__init__.py:F401"]
+        exclude: pipeline/
+        
+
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.1.1
+    hooks:
+
+      #pydocstyle
+      - id: pydocstyle
+        args:
+          - --source
+          - --explain
+          - --convention=numpy
+          - --add-ignore=D100, D104, D206, D210, D401
+        language: python
+        types: [python]
+        exclude: pipeline/|hooks/
+        additional_dependencies: [toml]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+
+      # trailing-whitespace
+      - id: trailing-whitespace
+        language: python
+        types: [python]
+        exclude: pipeline/
+
+      # end-of-file-fixer
+      - id: end-of-file-fixer
+        language: python
+        types: [python]
+        exclude: pipeline/
+
+      # mixed-line-ending
+      - id: mixed-line-ending
+        language: python
+        types: [python]
+        exclude: pipeline/
+
+      # check-added-large-files
+      - id: check-added-large-files
+        language: python
+        types: [python]
+        args: ["--maxkb=30000"]
+        exclude: pipeline/
+
+  # - repo: local
+  #   hooks:
+  #     - id: pytest
+  #       name: Run pytest
+  #       entry: pytest test/unit/
+  #       pass_filenames: false  # false: not to pass filenames to pytest
+  #       language: system
+  #       types: [python]
+  #       stages: [commit]

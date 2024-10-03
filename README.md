@@ -14,6 +14,22 @@ To set up the development environment and configure the `sys.path`:
 
    This script will create an IPython startup file that adds the project directory to `sys.path`, allowing you to import modules from this project in Jupyter Notebook.
 
+
+   ## Install PyTorch with CUDA support
+
+   The `init_dev_env.sh` script includes a command to install PyTorch with CUDA 11.7 support:
+
+   ```
+   $ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117
+   ```
+
+   This command installs PyTorch with CUDA 11.7 support, which is optimized for GPU acceleration.
+
+   Note: If your CUDA version is different from 11.7, you should modify this command in the
+   `init_dev_env.sh` script to match your CUDA version. You can find the appropriate command for
+   your CUDA version on the official PyTorch website: https://pytorch.org/get-started/locally/
+
+
 2. Restart Jupyter Notebook for the changes to take effect.
 
 ## Usage
