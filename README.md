@@ -46,3 +46,14 @@ The UNet implementation used in this project is based on the code shared in the 
 
 We appreciate the author's contribution to the community by sharing their implementation.
 
+
+## UNet Architecture
+
+Below is a visual representation of the UNet architecture:
+
+![UNet Architecture](./Unet_Architecture.png)
+
+This diagram illustrates the characteristic U-shaped structure of the UNet, 
+showing the contracting path (left side), bottleneck (middle), and expansive path (right side). 
+The skip connections between the contracting and expansive paths are also clearly visible.
+

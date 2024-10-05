@@ -1,137 +1,132 @@
-# """TODO
-# [ ] train 함수 리팩토링 ...
-#     [ ] 다른데서는 보통 train 을 어떻게 구현하는지 검토
-# """
-# # 훈련 파라미터 설정하기
-# lr = 1e-3
-# batch_size = 4
-# num_epoch = 20
-
-# base_dir = './drive/MyDrive/DACrew/unet'
-# data_dir = dir_data
-# ckpt_dir = os.path.join(base_dir, "checkpoint")
-# log_dir = os.path.join(base_dir, "log")
+import torch
+from torch import nn
+from torch.optim import Adam
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.utils.data import DataLoader
 
 
-# # 훈련을 위한 Transform과 DataLoader
-# transform = transforms.Compose([Normalization(mean=0.5, std=0.5), RandomFlip(), ToTensor()])
+class Trainer:
+    """
+    A class for training models.
 
-# dataset_train = Dataset(data_dir=os.path.join(data_dir, 'train'), transform=transform)
-# loader_train = DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=8)
+    Parameters
+    ----------
+    model : nn.Module
+        The model to be trained
+    train_loader : DataLoader
+        DataLoader for training data
+    val_loader : DataLoader
+        DataLoader for validation data
+    save_path : str, optional
+        Path to save the model (default: None)
+    learning_rate : float, optional
+        Learning rate (default: 0.001)
 
-# dataset_val = Dataset(data_dir=os.path.join(data_dir, 'val'), transform=transform)
-# loader_val = DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=8)
+    Examples
+    --------
+    >>> from unet.train import Trainer
+    >>> from unet.unet import UNet
+    >>> model = UNet()
+    >>> trainer = Trainer(model, train_loader, val_loader, save_path='model.pth')
+    >>> trainer.train(num_epochs=10)
+    """
 
-# # 네트워크 생성하기
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# net = UNet().to(device)
+    def __init__(
+        self,
+        model: nn.Module,
+        train_loader: DataLoader,
+        val_loader: DataLoader,
+        save_path: str = None,
+        learning_rate: float = 0.001,
+    ):
+        self.model = model
+        self.train_loader = train_loader
+        self.val_loader = val_loader
+        self.save_path = save_path
 
-# # 손실함수 정의하기
-# fn_loss = nn.BCEWithLogitsLoss().to(device)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model.to(self.device)
 
-# # Optimizer 설정하기
-# optim = torch.optim.Adam(net.parameters(), lr=lr)
+        self.criterion = nn.BCEWithLogitsLoss()
+        self.optimizer = Adam(self.model.parameters(), lr=learning_rate)
+        self.scheduler = ReduceLROnPlateau(self.optimizer, 'min', patience=5)
 
-# # 그밖에 부수적인 variables 설정하기
-# num_data_train = len(dataset_train)
-# num_data_val = len(dataset_val)
+    def train(self, num_epochs: int) -> None:
+        """
+        Train the model for the specified number of epochs.
 
-# num_batch_train = np.ceil(num_data_train / batch_size)
-# num_batch_val = np.ceil(num_data_val / batch_size)
+        Parameters
+        ----------
+        num_epochs : int
+            Number of epochs to train
 
-# # 그 밖에 부수적인 functions 설정하기
-# fn_tonumpy = lambda x: x.to('cpu').detach().numpy().transpose(0, 2, 3, 1)
-# fn_denorm = lambda x, mean, std: (x * std) + mean
-# fn_class = lambda x: 1.0 * (x > 0.5)
+        Returns
+        -------
+        None
+        """
+        best_val_loss = float('inf')
 
-# # Tensorboard 를 사용하기 위한 SummaryWriter 설정
-# writer_train = SummaryWriter(log_dir=os.path.join(log_dir, 'train'))
-# writer_val = SummaryWriter(log_dir=os.path.join(log_dir, 'val'))
+        for epoch in range(num_epochs):
+            train_loss = self._train_epoch()
+            val_loss = self._validate_epoch()
 
-# # 네트워크 학습시키기
-# st_epoch = 0
-# # 학습한 모델이 있을 경우 모델 로드하기
-# net, optim, st_epoch = load(ckpt_dir=ckpt_dir, net=net, optim=optim)
+            self.scheduler.step(val_loss)
 
-# for epoch in range(st_epoch + 1, num_epoch + 1):
-#         net.train()
-#         loss_arr = []
+            print(f'Epoch {epoch+1}/{num_epochs}:')
+            print(f'Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}')
 
-#         for batch, data in enumerate(loader_train, 1):
-#             # forward pass
-#             label = data['label'].to(device)
-#             input = data['input'].to(device)
+            if self.save_path and val_loss < best_val_loss:
+                best_val_loss = val_loss
+                torch.save(self.model.state_dict(), self.save_path)
+                print(f'Model saved to {self.save_path}')
 
-#             output = net(input)
+            print()  # Add a blank line between epochs
 
-#             # backward pass
-#             optim.zero_grad()
+    def _train_epoch(self) -> float:
+        """
+        Train the model for one epoch.
 
-#             loss = fn_loss(output, label)
-#             loss.backward()
+        Returns
+        -------
+        float
+            Average training loss for the epoch
+        """
+        self.model.train()
+        total_loss = 0
 
-#             optim.step()
+        for inputs, targets in self.train_loader:
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
 
-#             # 손실함수 계산
-#             loss_arr += [loss.item()]
+            self.optimizer.zero_grad()
+            outputs = self.model(inputs)
+            loss = self.criterion(outputs, targets)
+            loss.backward()
+            self.optimizer.step()
 
-#             print(
-#                 "TRAIN: EPOCH %04d / %04d | BATCH %04d / %04d | LOSS %.4f" %
-#                 (epoch, num_epoch, batch, num_batch_train, np.mean(loss_arr)),
-#             )
+            total_loss += loss.item()
 
-#             # Tensorboard 저장하기
-#             label = fn_tonumpy(label)
-#             input = fn_tonumpy(fn_denorm(input, mean=0.5, std=0.5))
-#             output = fn_tonumpy(fn_class(output))
+        return total_loss / len(self.train_loader)
 
-#             writer_train.add_image(
-# 'label', label, num_batch_train * (epoch - 1) + batch, dataformats='NHWC')
-#             writer_train.add_image(
-# 'input', input, num_batch_train * (epoch - 1) + batch, dataformats='NHWC')
-#             writer_train.add_image(
-# 'output', output, num_batch_train * (epoch - 1) + batch, dataformats='NHWC')
+    def _validate_epoch(self) -> float:
+        """
+        Validate the model for one epoch.
 
-#         writer_train.add_scalar('loss', np.mean(loss_arr), epoch)
+        Returns
+        -------
+        float
+            Average validation loss for the epoch
+        """
+        self.model.eval()
+        total_loss = 0
 
-#         with torch.no_grad():
-#             net.eval()
-#             loss_arr = []
+        with torch.no_grad():
+            for inputs, targets in self.val_loader:
+                inputs = inputs.to(self.device)
+                targets = targets.to(self.device)
 
-#             for batch, data in enumerate(loader_val, 1):
-#                 # forward pass
-#                 label = data['label'].to(device)
-#                 input = data['input'].to(device)
+                outputs = self.model(inputs)
+                loss = self.criterion(outputs, targets)
 
-#                 output = net(input)
+                total_loss += loss.item()
 
-#                 # 손실함수 계산하기
-#                 loss = fn_loss(output, label)
-
-#                 loss_arr += [loss.item()]
-
-#                 print(
-#                     "VALID: EPOCH %04d / %04d | BATCH %04d / %04d | LOSS %.4f" %
-#                     (epoch, num_epoch, batch, num_batch_val, np.mean(loss_arr)),
-#                 )
-
-#                 # Tensorboard 저장하기
-#                 label = fn_tonumpy(label)
-#                 input = fn_tonumpy(fn_denorm(input, mean=0.5, std=0.5))
-#                 output = fn_tonumpy(fn_class(output))
-
-#                 writer_val.add_image(
-# 'label', label, num_batch_val * (epoch - 1) + batch, dataformats='NHWC')
-#                 writer_val.add_image(
-# 'input', input, num_batch_val * (epoch - 1) + batch, dataformats='NHWC')
-#                 writer_val.add_image(
-# 'output', output, num_batch_val * (epoch - 1) + batch, dataformats='NHWC')
-
-#         writer_val.add_scalar('loss', np.mean(loss_arr), epoch)
-
-#         # epoch 50마다 모델 저장하기
-#         if epoch % 50 == 0:
-#             save(ckpt_dir=ckpt_dir, net=net, optim=optim, epoch=epoch)
-
-#         writer_train.close()
-#         writer_val.close()
+        return total_loss / len(self.val_loader)

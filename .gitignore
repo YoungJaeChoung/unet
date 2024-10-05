@@ -1,0 +1,8 @@
+# Pycache
+*.pyc
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Pytorch Checkpoint
+*.pth

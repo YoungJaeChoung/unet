@@ -29,7 +29,14 @@ def conv_batchnorm_relu(
 
 
 class UNet(nn.Module):
-    """UNet model."""
+    """UNet model.
+
+    Example
+    -------
+    >>> from unet.unet import UNet
+    >>> net = UNet()
+    >>> net
+    """
 
     def __init__(self):
         super(UNet, self).__init__()
